@@ -51,10 +51,14 @@ def run(**kwargs):
                         default=kwargs.get('dest', TRANSLATED_PATH))
     arguments = parser.parse_args()
 
-    for file in os.listdir(arguments.src):
-        if recognize_po_file(file):
-            found_files = True
-            solve(os.path.join(arguments.dest, file), os.path.join(arguments.src, file), arguments)
+    for root, dirs, files in os.walk(arguments.src):
+        rel_path = os.path.relpath(root, arguments.src)
+        for file in files:
+            if recognize_po_file(file):
+                if not os.path.exists(os.path.join(arguments.dest, rel_path)):
+                    os.makedirs(os.path.join(arguments.dest, rel_path))
+                found_files = True
+                solve(os.path.join(arguments.dest, rel_path, file), os.path.join(arguments.src, rel_path, file), arguments)
 
     if not found_files:
         raise Exception(f"Couldn't find any .po files at: '{arguments.src}'")
