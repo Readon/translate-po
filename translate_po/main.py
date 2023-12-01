@@ -58,6 +58,7 @@ def run(**kwargs):
                         default=kwargs.get('dest', TRANSLATED_PATH))
     arguments = parser.parse_args()
 
+    fail_list = []
     for root, dirs, files in os.walk(arguments.src):
         rel_path = os.path.relpath(root, arguments.src)
         for file in files:
@@ -66,7 +67,17 @@ def run(**kwargs):
                     os.makedirs(os.path.join(arguments.dest, rel_path))
                 found_files = True
                 task = solve(os.path.join(arguments.dest, rel_path, file), os.path.join(arguments.src, rel_path, file), arguments)
-                asyncio.run(task)
+                failed = asyncio.run(task)
+                if failed:
+                    fail_list.append(failed)
+
+    fail_final = []
+    for new_file, old_file in fail_list:
+        task = solve(new_file, old_file, arguments)
+        failed = asyncio.run(task)
+        if failed:
+            fail_final.append(failed)
+    print(f"Finally failed file: {fail_final}")                
 
     if not found_files:
         raise Exception(f"Couldn't find any .po files at: '{arguments.src}'")
