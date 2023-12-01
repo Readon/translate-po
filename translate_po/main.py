@@ -2,17 +2,19 @@ import argparse
 import os
 
 import polib
-from googletrans import Translator
+from granslate import Translator
 
 from .utilities.constants import UNTRANSLATED_PATH, TRANSLATED_PATH, LANGUAGE_SOURCE, LANGUAGE_DESTINATION
 from .utilities.io import read_lines, save_lines
 from .utilities.match import recognize_po_file
 
 
+import asyncio
 def translate(source: str, arguments) -> str:
     """ Translates a single string into target language. """
     translator = Translator()
-    return translator.translate(source, dest=arguments.to, src=arguments.fro).text
+    loop = asyncio.get_event_loop()
+    return loop.run_until_complete(translator.translate(source, dest=arguments.to, src=arguments.fro)).text
 
 
 def create_close_string(line: str) -> str:
