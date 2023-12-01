@@ -27,13 +27,18 @@ def create_close_string(line: str) -> str:
 async def solve(new_file: str, old_file: str, arguments):
     """ Translates single file. """
     lines = read_lines(old_file)
-    tasks = [translate(line, arguments) for line in lines]
-    await asyncio.gather(*tasks)
-    save_lines(new_file, lines)
+    try:
+        tasks = [translate(line, arguments) for line in lines]
+        await asyncio.gather(*tasks)
+        save_lines(new_file, lines)
+    except:
+        print(f"Timeout, Translate {new_file} error.")
+        return new_file, old_file
     print(f"Translated and write file: {new_file}.")
+    return None
 
 
-async def run(**kwargs):
+def run(**kwargs):
     """ Core process that translates all files in a directory.
      :parameter fro:
      :parameter to:
@@ -61,11 +66,11 @@ async def run(**kwargs):
                     os.makedirs(os.path.join(arguments.dest, rel_path))
                 found_files = True
                 task = solve(os.path.join(arguments.dest, rel_path, file), os.path.join(arguments.src, rel_path, file), arguments)
-                await asyncio.gather(task)
+                asyncio.run(task)
 
     if not found_files:
         raise Exception(f"Couldn't find any .po files at: '{arguments.src}'")
 
 
 if __name__ == '__main__':
-    asyncio.run(run())
+    run()
