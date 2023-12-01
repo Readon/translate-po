@@ -1,5 +1,6 @@
 import argparse
 import os
+import asyncio
 
 import polib
 from granslate import Translator
@@ -9,12 +10,13 @@ from .utilities.io import read_lines, save_lines
 from .utilities.match import recognize_po_file
 
 
-import asyncio
-def translate(source: str, arguments) -> str:
+async def translate(line: polib.POEntry, arguments) -> str:
     """ Translates a single string into target language. """
     translator = Translator()
-    loop = asyncio.get_event_loop()
-    return loop.run_until_complete(translator.translate(source, dest=arguments.to, src=arguments.fro)).text
+    source = polib.escape(line.msgid)
+    translated = await asyncio.gather(translator.translate(source, dest=arguments.to, src=arguments.fro))
+    line.msgstr = polib.unescape(translated[0].text)
+    return line
 
 
 def create_close_string(line: str) -> str:
@@ -22,16 +24,16 @@ def create_close_string(line: str) -> str:
     return r"msgstr " + '"' + line + '"' + "\n"
 
 
-def solve(new_file: str, old_file: str, arguments):
+async def solve(new_file: str, old_file: str, arguments):
     """ Translates single file. """
     lines = read_lines(old_file)
-    for line in lines:
-        line.msgstr = polib.unescape(translate(polib.escape(line.msgid), arguments))
-        print(f"Translated {lines.percent_translated()}% of the lines.")
+    tasks = [translate(line, arguments) for line in lines]
+    await asyncio.gather(*tasks)
     save_lines(new_file, lines)
+    print(f"Translated and write file: {new_file}.")
 
 
-def run(**kwargs):
+async def run(**kwargs):
     """ Core process that translates all files in a directory.
      :parameter fro:
      :parameter to:
@@ -58,11 +60,12 @@ def run(**kwargs):
                 if not os.path.exists(os.path.join(arguments.dest, rel_path)):
                     os.makedirs(os.path.join(arguments.dest, rel_path))
                 found_files = True
-                solve(os.path.join(arguments.dest, rel_path, file), os.path.join(arguments.src, rel_path, file), arguments)
+                task = solve(os.path.join(arguments.dest, rel_path, file), os.path.join(arguments.src, rel_path, file), arguments)
+                await asyncio.gather(task)
 
     if not found_files:
         raise Exception(f"Couldn't find any .po files at: '{arguments.src}'")
 
 
 if __name__ == '__main__':
-    run()
+    asyncio.run(run())
